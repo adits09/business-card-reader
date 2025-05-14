@@ -1,0 +1,9 @@
+.env
+__pycache__/
+uploaded_cards/
+*.pyc
+*.pyo
+*.pyd
+.Python
+.env.*
+*.zip
