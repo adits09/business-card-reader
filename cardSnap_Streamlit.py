@@ -11,8 +11,8 @@ import zipfile
 import io
 import hashlib
 
-load_dotenv()
-API_KEY = os.getenv("API_KEY")
+#load_dotenv()
+API_KEY = st.secrets("API_KEY")
 
 HEADERS = {"Content-Type": "application/json"}
 
