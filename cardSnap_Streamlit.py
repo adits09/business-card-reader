@@ -12,7 +12,7 @@ import io
 import hashlib
 
 #load_dotenv()
-API_KEY = st.secrets("API_KEY")
+API_KEY = st.secrets["API_KEY"]
 
 HEADERS = {"Content-Type": "application/json"}
 
