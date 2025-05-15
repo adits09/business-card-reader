@@ -18,6 +18,9 @@ HEADERS = {"Content-Type": "application/json"}
 if 'processed_files' not in st.session_state:
     st.session_state.processed_files = set()
 
+if 'uploaded_file_names' not in st.session_state:
+    st.session_state.uploaded_file_names = []
+
 def get_file_hash(file_content):
     return hashlib.md5(file_content).hexdigest()
 
@@ -175,6 +178,7 @@ def process_file(file_content, file_name):
                 saved_path = save_to_excel(info)
                 if saved_path:
                     st.success(f"Data from '{file_name}' added to Excel!")
+                    st.session_state.uploaded_file_names.append(file_name)
                 st.session_state.processed_files.add(file_hash)
 
         os.remove(temp_path)
@@ -184,12 +188,13 @@ def process_file(file_content, file_name):
         return False
 
 def main():
-    st.set_page_config(page_title="Business Card Reader", layout="centered")
-    st.title("Business Card Reader for Excel")
+    st.set_page_config(page_title="CardSnap", layout="centered")
+    st.title("Welcome to cardSnap")
     st.write("Upload one or more business card images (PNG, JPG, JPEG) or a ZIP file of images. We'll extract the contact info and save it to Excel!")
 
     if st.button("Clear processed files history"):
         st.session_state.processed_files = set()
+        st.session_state.uploaded_file_names = []
         st.success("Processing history cleared! All uploaded files will be processed again.")
 
     uploaded_files = st.file_uploader("Upload Business Card Images or ZIP file", type=["png", "jpg", "jpeg", "zip"], accept_multiple_files=True)
@@ -228,11 +233,14 @@ def main():
 
         excel_path = Path.cwd() / "documents" / "all_cards_data.xlsx"
         if excel_path.exists():
+            download_filename = st.session_state.uploaded_file_names[0] if st.session_state.uploaded_file_names else "business_cards_data.xlsx"
+            download_filename = os.path.splitext(download_filename)[0] + ".xlsx"
+
             with open(excel_path, "rb") as f:
                 st.download_button(
                     label="Download Combined Excel File",
-                    data=f,
-                    file_name="all_cards_data.xlsx",
+                    data=f.read(),
+                    file_name=download_filename,
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
 
