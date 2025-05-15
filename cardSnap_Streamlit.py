@@ -12,13 +12,10 @@ from PIL import Image
 
 API_KEY = st.secrets["API_KEY"]
 HEADERS = {"Content-Type": "application/json"}
+EXCEL_FILE_NAME = "extracted_contacts.xlsx"
 
 if 'processed_files' not in st.session_state:
     st.session_state.processed_files = set()
-
-# No longer needed for naming the Excel file consistently
-# if 'uploaded_file_names' not in st.session_state:
-#     st.session_state.uploaded_file_names = []
 
 def get_file_hash(file_content):
     return hashlib.md5(file_content).hexdigest()
@@ -103,30 +100,25 @@ def normalize_fields(info_dict):
         normalized_data[standard_field] = value
     return normalized_data
 
-# Consistent Excel file name
-EXCEL_FILE_NAME = "extracted_contacts.xlsx"
-
 def save_to_excel(info_dict, file_base_name):
     documents_path = Path.cwd() / "documents"
     documents_path.mkdir(exist_ok=True)
-    full_path = documents_path / EXCEL_FILE_NAME # Use the consistent name
+    full_path = documents_path / EXCEL_FILE_NAME
     headers = ["Company Name", "Person Name", "Designation", "Phone", "Email", "Website", "Address"]
     normalized_data = normalize_fields(info_dict)
     new_row = [normalized_data.get(header, "") for header in headers]
+    new_row_tuple = tuple(new_row)
 
     try:
         if full_path.is_file():
             wb = openpyxl.load_workbook(full_path)
             ws = wb.active
             existing_rows = [
-                tuple(str(cell) for cell in row)
-                for row in ws.iter_rows(min_row=2, values_only=True)
+                tuple(str(cell.value) for cell in row)
+                for row in ws.iter_rows(min_row=2)
             ]
-            new_row_tuple = tuple(str(cell) for cell in new_row)
             if new_row_tuple not in existing_rows:
-                next_row = ws.max_row + 1
-                for col_idx, value in enumerate(new_row, start=1):
-                    ws.cell(row=next_row, column=col_idx).value = value
+                ws.append(new_row)
                 wb.save(full_path)
                 return str(full_path)
             else:
@@ -164,9 +156,7 @@ def process_file(file_content, file_name):
                 saved_path = save_to_excel(info, file_base_name)
                 if saved_path:
                     st.success(f"Data from '{file_name}' added to Excel!")
-                    # No longer appending individual file names for Excel naming
-                    # st.session_state.uploaded_file_names.append(file_name)
-                st.session_state.processed_files.add(file_hash)
+            st.session_state.processed_files.add(file_hash)
 
         os.remove(temp_path)
         return True
@@ -181,7 +171,6 @@ def main():
 
     if st.button("Clear processed files history"):
         st.session_state.processed_files = set()
-        # st.session_state.uploaded_file_names = [] # No longer strictly needed
         st.success("Processing history cleared! All uploaded files will be processed again.")
 
     uploaded_files = st.file_uploader("Upload Business Card Images or ZIP file", type=["png", "jpg", "jpeg", "zip"], accept_multiple_files=True)
@@ -215,7 +204,7 @@ def main():
                 if process_file(file_content, file_name):
                     new_files_processed = True
 
-        if st.session_state.processed_files: # Check if any files were processed
+        if st.session_state.processed_files:
             excel_path = Path.cwd() / "documents" / EXCEL_FILE_NAME
             if excel_path.exists():
                 with open(excel_path, "rb") as f:
