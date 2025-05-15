@@ -114,8 +114,8 @@ def normalize_fields(info_dict):
 
     return normalized_data
 
-def save_to_excel(info_dict, file_name):
-    excel_name = f"{os.path.splitext(file_name)[0]}.xlsx"
+def save_to_excel(info_dict):
+    excel_name = "all_cards_data.xlsx"
     documents_path = Path.cwd() / "documents"
     documents_path.mkdir(exist_ok=True)
     full_path = documents_path / excel_name
@@ -156,14 +156,14 @@ def save_to_excel(info_dict, file_name):
         st.error(f"Failed to save data: {e}")
         return None
 
-def process_file(file_content, file_name, original_file_name):
+def process_file(file_content, file_name):
     try:
         file_hash = get_file_hash(file_content)
-        
+
         if file_hash in st.session_state.processed_files:
             st.info(f"Skipping already processed file: {file_name}")
             return True
-            
+
         img = Image.open(io.BytesIO(file_content))
         temp_path = os.path.join("uploaded_cards", file_name)
         os.makedirs("uploaded_cards", exist_ok=True)
@@ -172,11 +172,11 @@ def process_file(file_content, file_name, original_file_name):
         with st.spinner(f"Processing {file_name}..."):
             info = extract_info_from_image(temp_path)
             if info:
-                saved_path = save_to_excel(info, original_file_name)
+                saved_path = save_to_excel(info)
                 if saved_path:
                     st.success(f"Data from '{file_name}' added to Excel!")
                 st.session_state.processed_files.add(file_hash)
-                
+
         os.remove(temp_path)
         return True
     except Exception as e:
@@ -196,51 +196,46 @@ def main():
 
     if uploaded_files:
         new_files_processed = False
-        file_to_excel_map = {}
-        
+
         for uploaded_file in uploaded_files:
             file_name = uploaded_file.name
             file_content = uploaded_file.read()
-            
+
             if file_name.endswith(".zip"):
                 try:
                     zip_hash = get_file_hash(file_content)
                     if zip_hash in st.session_state.processed_files:
                         st.info(f"Skipping already processed ZIP file: {file_name}")
                         continue
-                        
+
                     with zipfile.ZipFile(io.BytesIO(file_content), 'r') as zip_ref:
                         for member in zip_ref.namelist():
                             if member.lower().endswith(('.png', '.jpg', '.jpeg')):
                                 with zip_ref.open(member) as image_file:
                                     image_content = image_file.read()
-                                    if process_file(image_content, os.path.basename(member), file_name):
+                                    if process_file(image_content, os.path.basename(member)):
                                         new_files_processed = True
-                                        file_to_excel_map[file_name] = f"{os.path.splitext(file_name)[0]}.xlsx"
-                    
+
                     st.session_state.processed_files.add(zip_hash)
-                    
+
                 except zipfile.BadZipFile:
                     st.error(f"Error: '{file_name}' is not a valid ZIP file.")
                 except Exception as e:
                     st.error(f"Error processing '{file_name}': {e}")
             else:
-                if process_file(file_content, file_name, file_name):
+                if process_file(file_content, file_name):
                     new_files_processed = True
-                    file_to_excel_map[file_name] = f"{os.path.splitext(file_name)[0]}.xlsx"
 
-        for original_file, excel_name in file_to_excel_map.items():
-            excel_path = Path.cwd() / "documents" / excel_name
-            if excel_path.exists():
-                with open(excel_path, "rb") as f:
-                    st.download_button(
-                        label=f"Download Excel for {original_file}",
-                        data=f,
-                        file_name=excel_name,
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        key=f"download_{excel_name}"
-                    )
-            
+        excel_path = Path.cwd() / "documents" / "all_cards_data.xlsx"
+        if excel_path.exists():
+            with open(excel_path, "rb") as f:
+                st.download_button(
+                    label="Download Combined Excel File",
+                    data=f,
+                    file_name="all_cards_data.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
+
         if new_files_processed:
             st.write(f"Currently processed {len(st.session_state.processed_files)} unique files.")
 
