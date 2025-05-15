@@ -116,21 +116,22 @@ def normalize_fields(info_dict):
 
 def save_to_excel(info_dict, file_name):
     excel_name = f"{os.path.splitext(file_name)[0]}.xlsx"
-    documents_path = "documents"
-    os.makedirs(documents_path, exist_ok=True)
-    full_path = os.path.join(documents_path, excel_name)
+    documents_path = Path.cwd() / "documents"
+    documents_path.mkdir(exist_ok=True)
+    full_path = documents_path / excel_name
     headers = ["Company Name", "Person Name", "Designation", "Phone", "Email", "Website", "Address"]
 
     normalized_data = normalize_fields(info_dict)
     new_row = [normalized_data.get(header, "") for header in headers]
 
     try:
-        if os.path.isfile(full_path):
+        if full_path.is_file():
             wb = openpyxl.load_workbook(full_path)
             ws = wb.active
-            existing_rows = []
-            for row in ws.iter_rows(min_row=2, values_only=True):
-                existing_rows.append(tuple(str(cell) for cell in row))
+            existing_rows = [
+                tuple(str(cell) for cell in row)
+                for row in ws.iter_rows(min_row=2, values_only=True)
+            ]
 
             new_row_tuple = tuple(str(cell) for cell in new_row)
 
@@ -139,7 +140,7 @@ def save_to_excel(info_dict, file_name):
                 for col_idx, value in enumerate(new_row, start=1):
                     ws.cell(row=next_row, column=col_idx).value = value
                 wb.save(full_path)
-                return full_path
+                return str(full_path)
             else:
                 st.info("This card's information is already in the Excel sheet.")
                 return None
@@ -147,10 +148,10 @@ def save_to_excel(info_dict, file_name):
             wb = openpyxl.Workbook()
             ws = wb.active
             ws.title = "Business Cards"
-            ws.append(headers)  
+            ws.append(headers)
             ws.append(new_row)
             wb.save(full_path)
-            return full_path
+            return str(full_path)
     except Exception as e:
         st.error(f"Failed to save data: {e}")
         return None
@@ -229,7 +230,7 @@ def main():
                     file_to_excel_map[file_name] = f"{os.path.splitext(file_name)[0]}.xlsx"
 
         for original_file, excel_name in file_to_excel_map.items():
-            excel_path = Path("documents").joinpath(excel_name)
+            excel_path = Path.cwd() / "documents" / excel_name
             if excel_path.exists():
                 with open(excel_path, "rb") as f:
                     st.download_button(
