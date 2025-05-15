@@ -117,8 +117,8 @@ def normalize_fields(info_dict):
 
     return normalized_data
 
-def save_to_excel(info_dict):
-    excel_name = "all_cards_data.xlsx"
+def save_to_excel(info_dict, file_base_name):
+    excel_name = file_base_name + ".xlsx"
     documents_path = Path.cwd() / "documents"
     documents_path.mkdir(exist_ok=True)
     full_path = documents_path / excel_name
@@ -172,10 +172,12 @@ def process_file(file_content, file_name):
         os.makedirs("uploaded_cards", exist_ok=True)
         img.save(temp_path)
 
+        file_base_name = os.path.splitext(file_name)[0]
+
         with st.spinner(f"Processing {file_name}..."):
             info = extract_info_from_image(temp_path)
             if info:
-                saved_path = save_to_excel(info)
+                saved_path = save_to_excel(info, file_base_name)
                 if saved_path:
                     st.success(f"Data from '{file_name}' added to Excel!")
                     st.session_state.uploaded_file_names.append(file_name)
@@ -231,18 +233,19 @@ def main():
                 if process_file(file_content, file_name):
                     new_files_processed = True
 
-        excel_path = Path.cwd() / "documents" / "all_cards_data.xlsx"
-        if excel_path.exists():
-            download_filename = st.session_state.uploaded_file_names[0] if st.session_state.uploaded_file_names else "business_cards_data.xlsx"
-            download_filename = os.path.splitext(download_filename)[0] + ".xlsx"
+        if st.session_state.uploaded_file_names:
+            first_file = st.session_state.uploaded_file_names[0]
+            excel_name = os.path.splitext(first_file)[0] + ".xlsx"
+            excel_path = Path.cwd() / "documents" / excel_name
 
-            with open(excel_path, "rb") as f:
-                st.download_button(
-                    label="Download Combined Excel File",
-                    data=f.read(),
-                    file_name=download_filename,
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                )
+            if excel_path.exists():
+                with open(excel_path, "rb") as f:
+                    st.download_button(
+                        label="Download Combined Excel File",
+                        data=f.read(),
+                        file_name=excel_name,
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    )
 
         if new_files_processed:
             st.write(f"Currently processed {len(st.session_state.processed_files)} unique files.")
