@@ -107,7 +107,7 @@ def save_to_master_excel(info_dict, file_name):
     headers = ["File Name", "Company Name", "Person Name", "Designation", "Phone", "Email", "Website", "Address"]
     normalized_data = normalize_fields(info_dict)
     
-    # Add the filename as the first column
+
     new_row = [file_name]
     for header in headers[1:]:  # Skip "File Name" as we already added it
         new_row.append(normalized_data.get(header, ""))
@@ -117,7 +117,6 @@ def save_to_master_excel(info_dict, file_name):
             wb = openpyxl.load_workbook(full_path)
             ws = wb.active
             
-            # More robust duplicate checking
             existing_rows = []
             for row in ws.iter_rows(min_row=2, values_only=True):
                 row_values = tuple(str(cell).strip() if cell is not None else "" for cell in row)
@@ -127,18 +126,15 @@ def save_to_master_excel(info_dict, file_name):
             
             is_duplicate = False
             for existing_row in existing_rows:
-                # Check email and phone match as primary keys for duplication
-                # Adjust indices because we now have filename as first column
+        
                 email_match = (existing_row[5].lower() == new_row_tuple[5].lower()) and new_row_tuple[5] != ""
                 phone_match = (existing_row[4].lower() == new_row_tuple[4].lower()) and new_row_tuple[4] != ""
                 name_match = (existing_row[2].lower() == new_row_tuple[2].lower()) and new_row_tuple[2] != ""
                 
-                # Consider it duplicate if email or phone match with name
                 if (email_match or phone_match) and name_match:
                     is_duplicate = True
                     break
                 
-                # Also check for exact row duplication (excluding the filename)
                 if existing_row[1:] == new_row_tuple[1:]:
                     is_duplicate = True
                     break
@@ -240,12 +236,11 @@ def main():
                 success, is_new = process_file(file_content, file_name)
                 new_entries_added = new_entries_added or is_new
 
-        # Show download button for the master Excel file
         master_excel_path = Path.cwd() / "documents" / MASTER_EXCEL_FILE
         if master_excel_path.exists():
             with open(master_excel_path, "rb") as f:
                 st.download_button(
-                    label=f"Download Master Contact List",
+                    label=f"Download Excel Sheet",
                     data=f.read(),
                     file_name=MASTER_EXCEL_FILE,
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
