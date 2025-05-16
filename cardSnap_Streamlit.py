@@ -12,7 +12,6 @@ from PIL import Image
 
 API_KEY = st.secrets["API_KEY"]
 HEADERS = {"Content-Type": "application/json"}
-EXCEL_FILE_NAME = "extracted_contacts.xlsx"
 
 if 'processed_files' not in st.session_state:
     st.session_state.processed_files = set()
@@ -103,7 +102,8 @@ def normalize_fields(info_dict):
 def save_to_excel(info_dict, file_base_name):
     documents_path = Path.cwd() / "documents"
     documents_path.mkdir(exist_ok=True)
-    full_path = documents_path / EXCEL_FILE_NAME
+    excel_file_name = f"{file_base_name}.xlsx"
+    full_path = documents_path / excel_file_name
     headers = ["Company Name", "Person Name", "Designation", "Phone", "Email", "Website", "Address"]
     normalized_data = normalize_fields(info_dict)
     new_row = [normalized_data.get(header, "") for header in headers]
@@ -162,7 +162,7 @@ def process_file(file_content, file_name):
         file_hash = get_file_hash(file_content)
         if file_hash in st.session_state.processed_files:
             st.info(f"Skipping already processed file: {file_name}")
-            return True
+            return True, None
 
         img = Image.open(io.BytesIO(file_content))
         temp_path = os.path.join("uploaded_cards", file_name)
@@ -177,13 +177,17 @@ def process_file(file_content, file_name):
                 saved_path = save_to_excel(info, file_base_name)
                 if saved_path:
                     st.success(f"Data from '{file_name}' added to Excel!")
+                    st.session_state.processed_files.add(file_hash)
+                    os.remove(temp_path)
+                    return True, file_base_name
+            
             st.session_state.processed_files.add(file_hash)
 
         os.remove(temp_path)
-        return True
+        return True, None
     except Exception as e:
         st.error(f"Error processing {file_name}: {e}")
-        return False
+        return False, None
 
 def main():
     st.set_page_config(page_title="CardSnap", layout="centered")
@@ -197,7 +201,7 @@ def main():
     uploaded_files = st.file_uploader("Upload Business Card Images or ZIP file", type=["png", "jpg", "jpeg", "zip"], accept_multiple_files=True)
 
     if uploaded_files:
-        new_files_processed = False
+        processed_excel_files = {}
         for uploaded_file in uploaded_files:
             file_name = uploaded_file.name
             file_content = uploaded_file.read()
@@ -214,29 +218,33 @@ def main():
                             if member.lower().endswith(('.png', '.jpg', '.jpeg')):
                                 with zip_ref.open(member) as image_file:
                                     image_content = image_file.read()
-                                    if process_file(image_content, os.path.basename(member)):
-                                        new_files_processed = True
+                                    success, file_base = process_file(image_content, os.path.basename(member))
+                                    if success and file_base:
+                                        processed_excel_files[file_base] = f"{file_base}.xlsx"
                     st.session_state.processed_files.add(zip_hash)
                 except zipfile.BadZipFile:
                     st.error(f"Error: '{file_name}' is not a valid ZIP file.")
                 except Exception as e:
                     st.error(f"Error processing '{file_name}': {e}")
             else:
-                if process_file(file_content, file_name):
-                    new_files_processed = True
+                success, file_base = process_file(file_content, file_name)
+                if success and file_base:
+                    processed_excel_files[file_base] = f"{file_base}.xlsx"
 
-        if st.session_state.processed_files:
-            excel_path = Path.cwd() / "documents" / EXCEL_FILE_NAME
+        # Create download buttons for each processed Excel file
+        for file_base, excel_file in processed_excel_files.items():
+            excel_path = Path.cwd() / "documents" / excel_file
             if excel_path.exists():
                 with open(excel_path, "rb") as f:
                     st.download_button(
-                        label="Download Combined Excel File",
+                        label=f"Download {excel_file}",
                         data=f.read(),
-                        file_name=EXCEL_FILE_NAME,
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                        file_name=excel_file,
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        key=f"download_{file_base}"
                     )
 
-        if new_files_processed:
+        if st.session_state.processed_files:
             st.write(f"Currently processed {len(st.session_state.processed_files)} unique files.")
 
 if __name__ == "__main__":
