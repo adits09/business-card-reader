@@ -107,17 +107,38 @@ def save_to_excel(info_dict, file_base_name):
     headers = ["Company Name", "Person Name", "Designation", "Phone", "Email", "Website", "Address"]
     normalized_data = normalize_fields(info_dict)
     new_row = [normalized_data.get(header, "") for header in headers]
-    new_row_tuple = tuple(new_row)
 
     try:
         if full_path.is_file():
             wb = openpyxl.load_workbook(full_path)
             ws = wb.active
-            existing_rows = [
-                tuple(str(cell.value) for cell in row)
-                for row in ws.iter_rows(min_row=2)
-            ]
-            if new_row_tuple not in existing_rows:
+            
+            # More robust duplicate checking
+            existing_rows = []
+            for row in ws.iter_rows(min_row=2, values_only=True):
+                row_values = tuple(str(cell).strip() if cell is not None else "" for cell in row)
+                existing_rows.append(row_values)
+            
+            new_row_tuple = tuple(str(cell).strip() if cell is not None else "" for cell in new_row)
+            
+            is_duplicate = False
+            for existing_row in existing_rows:
+                # Check email and phone match as primary keys for duplication
+                email_match = (existing_row[4].lower() == new_row_tuple[4].lower()) and new_row_tuple[4] != ""
+                phone_match = (existing_row[3].lower() == new_row_tuple[3].lower()) and new_row_tuple[3] != ""
+                name_match = (existing_row[1].lower() == new_row_tuple[1].lower()) and new_row_tuple[1] != ""
+                
+                # Consider it duplicate if email or phone match with name
+                if (email_match or phone_match) and name_match:
+                    is_duplicate = True
+                    break
+                
+                # Also check for exact row duplication
+                if existing_row == new_row_tuple:
+                    is_duplicate = True
+                    break
+            
+            if not is_duplicate:
                 ws.append(new_row)
                 wb.save(full_path)
                 return str(full_path)
