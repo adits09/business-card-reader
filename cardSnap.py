@@ -11,7 +11,7 @@ import threading
 import time
 from pathlib import Path
 
-API_KEY = "AIzaSyBEOC3dnhK9yNk43N46sjMP_D2r_0uFy0Y"
+
 
 def encode_image(image_path):
     with open(image_path, "rb") as image_file:
